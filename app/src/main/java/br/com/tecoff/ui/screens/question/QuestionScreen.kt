@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,10 +104,10 @@ fun QuestionScreen(
             )
         },
         bottomBar = {
-            // Fixed Bottom Navigation Bar with 5 navigation controls
+            // Individual Cards with Icons & Long-press Tooltips (no cut-off text labels)
             Surface(
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp,
+                tonalElevation = 6.dp,
                 shadowElevation = 8.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -114,69 +115,54 @@ fun QuestionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceAround,
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // 1. Anterior
-                    IconButton(
+                    NavButtonCard(
+                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        tooltipText = "Questão Anterior",
+                        enabled = uiState.canGoBackward,
                         onClick = { viewModel.goBackward() },
-                        enabled = uiState.canGoBackward
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Anterior", modifier = Modifier.size(20.dp))
-                            Text("Anterior", fontSize = 9.sp)
-                        }
-                    }
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
 
                     // 2. Próxima não resolvida
-                    IconButton(
+                    NavButtonCard(
+                        icon = Icons.Outlined.SkipNext,
+                        tooltipText = "Próxima Não Resolvida",
+                        enabled = uiState.unsolvedCount > 0,
                         onClick = { viewModel.goNextUnsolved() },
-                        enabled = uiState.unsolvedCount > 0
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Outlined.SkipNext, contentDescription = "Não Resolvida", modifier = Modifier.size(20.dp), tint = TecAccent)
-                            Text("Pular P/ Nova", fontSize = 9.sp, color = TecAccent)
-                        }
-                    }
+                        tint = TecAccent
+                    )
 
                     // 3. Aleatória não resolvida
-                    IconButton(
+                    NavButtonCard(
+                        icon = Icons.Outlined.Shuffle,
+                        tooltipText = "Questão Aleatória (Não Resolvida)",
+                        enabled = uiState.unsolvedCount > 0,
                         onClick = { viewModel.goRandomUnsolved() },
-                        enabled = uiState.unsolvedCount > 0
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Outlined.Shuffle, contentDescription = "Aleatória", modifier = Modifier.size(20.dp), tint = TecPrimary)
-                            Text("Aleatória", fontSize = 9.sp, color = TecPrimary)
-                        }
-                    }
+                        tint = TecPrimary
+                    )
 
                     // 4. Desfazer navegação (Undo)
-                    IconButton(
+                    NavButtonCard(
+                        icon = Icons.AutoMirrored.Filled.Undo,
+                        tooltipText = "Desfazer Última Navegação",
+                        enabled = uiState.canUndo,
                         onClick = { viewModel.undoNavigation() },
-                        enabled = uiState.canUndo
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = "Desfazer navegação",
-                                modifier = Modifier.size(20.dp),
-                                tint = if (uiState.canUndo) TecWarning else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            )
-                            Text("Desfazer", fontSize = 9.sp)
-                        }
-                    }
+                        tint = TecWarning
+                    )
 
                     // 5. Próxima
-                    IconButton(
+                    NavButtonCard(
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        tooltipText = "Próxima Questão",
+                        enabled = uiState.canGoForward,
                         onClick = { viewModel.goForward() },
-                        enabled = uiState.canGoForward
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Próxima", modifier = Modifier.size(20.dp))
-                            Text("Próxima", fontSize = 9.sp)
-                        }
-                    }
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
@@ -257,7 +243,22 @@ fun QuestionScreen(
                 q.alternativasHtml.forEachIndexed { idx, altHtml ->
                     val altIndex = idx + 1 // 1-based index
                     val letter = letters.getOrElse(idx) { ('A'.code + idx).toChar().toString() }
-                    val isCorrectAlternative = q.numeroAlternativaCorreta == altIndex
+
+                    val isCorrectAlternative = when {
+                        q.numeroAlternativaCorreta != null -> q.numeroAlternativaCorreta == altIndex
+                        q.isCertoErrado -> {
+                            val gab = q.gabarito?.trim()?.uppercase() ?: ""
+                            if (gab.startsWith("C") || gab == "1") altIndex == 1
+                            else if (gab.startsWith("E") || gab == "2") altIndex == 2
+                            else false
+                        }
+                        !q.gabarito.isNullOrBlank() -> {
+                            val gab = q.gabarito.trim().uppercase()
+                            letters.indexOf(gab) + 1 == altIndex
+                        }
+                        else -> false
+                    }
+
                     val isSelected = uiState.selectedAlternative == altIndex
                     val isStrikethrough = uiState.strikethroughList.contains(altIndex)
 
@@ -295,6 +296,17 @@ fun QuestionScreen(
                     }
                 } else {
                     // Result Feedback Banner
+                    val correctLabel = when {
+                        q.isCertoErrado -> {
+                            if (q.numeroAlternativaCorreta == 1 || q.gabarito?.contains("Certo", true) == true) "Certo" else "Errado"
+                        }
+                        q.numeroAlternativaCorreta != null -> {
+                            "Letra " + letters.getOrElse(q.numeroAlternativaCorreta - 1) { q.numeroAlternativaCorreta.toString() }
+                        }
+                        !q.gabarito.isNullOrBlank() -> "Letra " + q.gabarito
+                        else -> "Ver comentário"
+                    }
+
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
@@ -320,73 +332,119 @@ fun QuestionScreen(
                                     fontSize = 15.sp,
                                     color = if (uiState.isCorrect == true) TecSuccessText else TecErrorText
                                 )
-                                q.numeroAlternativaCorreta?.let { corrIdx ->
-                                    val corrLetter = letters.getOrElse(corrIdx - 1) { ('A'.code + corrIdx - 1).toChar().toString() }
-                                    Text(
-                                        text = "Gabarito oficial: Letra $corrLetter",
-                                        fontSize = 13.sp,
-                                        color = if (uiState.isCorrect == true) TecSuccessText else TecErrorText
-                                    )
-                                }
+                                Text(
+                                    text = "Gabarito oficial: $correctLabel",
+                                    fontSize = 13.sp,
+                                    color = if (uiState.isCorrect == true) TecSuccessText else TecErrorText
+                                )
                             }
                         }
                     }
                 }
 
                 // Professor Commentary Section
-                if (!q.comentarioHtml.isNullOrBlank()) {
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, TecAccent.copy(alpha = 0.3f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TecAccent.copy(alpha = 0.3f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.toggleProfessorComment() }
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Lightbulb,
+                                contentDescription = null,
+                                tint = TecAccent,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Comentário do Professor",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = TecAccent,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = if (uiState.showProfessorComment) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = TecAccent
+                            )
+                        }
+
+                        AnimatedVisibility(visible = uiState.showProfessorComment) {
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { viewModel.toggleProfessorComment() }
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Lightbulb,
-                                    contentDescription = null,
-                                    tint = TecAccent,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Comentário do Professor",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = TecAccent,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Icon(
-                                    imageVector = if (uiState.showProfessorComment) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = TecAccent
-                                )
-                            }
-
-                            AnimatedVisibility(visible = uiState.showProfessorComment) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                ) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    HtmlText(html = q.comentarioHtml)
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                val comText = if (!q.comentarioHtml.isNullOrBlank()) {
+                                    q.comentarioHtml
+                                } else {
+                                    "<p style=\"color: #64748B; font-style: italic;\">Esta questão ainda não possui comentário do professor cadastrado no TEC Concursos.</p>"
                                 }
+                                HtmlText(html = comText)
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NavButtonCard(
+    icon: ImageVector,
+    tooltipText: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    tint: Color,
+    containerColor: Color = MaterialTheme.colorScheme.surface
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip {
+                Text(tooltipText)
+            }
+        },
+        state = rememberTooltipState()
+    ) {
+        ElevatedCard(
+            onClick = onClick,
+            enabled = enabled,
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = containerColor
+            ),
+            elevation = CardDefaults.elevatedCardElevation(
+                defaultElevation = if (enabled) 3.dp else 0.dp
+            ),
+            modifier = Modifier.size(54.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = tooltipText,
+                    tint = if (enabled) tint else tint.copy(alpha = 0.25f),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

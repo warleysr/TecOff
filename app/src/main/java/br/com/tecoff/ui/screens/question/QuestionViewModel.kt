@@ -6,6 +6,7 @@ import br.com.tecoff.data.local.AppDatabase
 import br.com.tecoff.data.local.entity.QuestionEntity
 import br.com.tecoff.data.local.entity.ResolutionEntity
 import br.com.tecoff.data.model.Question
+import br.com.tecoff.domain.GabaritoExtractor
 import br.com.tecoff.domain.QuestionNavigator
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -91,6 +92,30 @@ class QuestionViewModel(
             val selected = res?.selectedAlternative
             val isCorrect = res?.isCorrect
 
+            // Fallback gabarito extraction if not populated previously
+            val (resolvedGabarito, resolvedNumero) = if (entity.numeroAlternativaCorreta != null) {
+                Pair(entity.gabarito, entity.numeroAlternativaCorreta)
+            } else {
+                GabaritoExtractor.extract(
+                    numeroCorretoRaw = null,
+                    tipoQuestao = entity.tipo,
+                    alternativas = alternativas,
+                    comentarioHtml = entity.comentarioHtml
+                )
+            }
+
+            // If we resolved the gabarito on the fly, persist it back to the database
+            if (entity.numeroAlternativaCorreta == null && resolvedNumero != null) {
+                viewModelScope.launch {
+                    db.questionDao().insertQuestion(
+                        entity.copy(
+                            gabarito = resolvedGabarito,
+                            numeroAlternativaCorreta = resolvedNumero
+                        )
+                    )
+                }
+            }
+
             val questionDomain = Question(
                 id = entity.id,
                 posicaoCaderno = idx + 1,
@@ -109,8 +134,8 @@ class QuestionViewModel(
                 desatualizada = entity.desatualizada,
                 enunciadoHtml = entity.enunciadoHtml,
                 alternativasHtml = alternativas,
-                gabarito = entity.gabarito,
-                numeroAlternativaCorreta = entity.numeroAlternativaCorreta,
+                gabarito = resolvedGabarito ?: entity.gabarito,
+                numeroAlternativaCorreta = resolvedNumero ?: entity.numeroAlternativaCorreta,
                 comentarioHtml = entity.comentarioHtml,
                 comentarioTexto = entity.comentarioTexto,
                 alternativaSelecionada = selected,
@@ -172,16 +197,19 @@ class QuestionViewModel(
         val q = _uiState.value.currentQuestion ?: return
         val selected = _uiState.value.selectedAlternative ?: return
 
-        val isCorrect = if (q.numeroAlternativaCorreta != null) {
-            selected == q.numeroAlternativaCorreta
-        } else {
-            // Heuristic if only letter available
-            val letters = "ABCDE"
-            val expectedLetter = q.gabarito?.trim()?.uppercase()
-            if (expectedLetter != null && letters.contains(expectedLetter)) {
-                selected == (letters.indexOf(expectedLetter) + 1)
-            } else false
+        val correctIndex = q.numeroAlternativaCorreta ?: run {
+            val gab = q.gabarito?.trim()?.uppercase()
+            when {
+                gab == null -> null
+                q.isCertoErrado -> if (gab.startsWith("C") || gab == "1") 1 else 2
+                else -> {
+                    val letters = "ABCDEFGHIJ"
+                    if (letters.contains(gab)) letters.indexOf(gab) + 1 else null
+                }
+            }
         }
+
+        val isCorrect = correctIndex != null && selected == correctIndex
 
         val resolution = ResolutionEntity(
             cadernoId = cadernoId,

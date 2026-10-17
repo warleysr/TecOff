@@ -85,7 +85,7 @@ class SyncManager(
             while (true) {
                 _syncProgress.value = SyncProgress(
                     isSyncing = true,
-                    statusText = "Carregando gabarito (Página $page)...",
+                    statusText = "Carregando lista de questões (Página $page)...",
                     current = allGabaritoItems.size,
                     total = totalExpected
                 )
@@ -93,8 +93,11 @@ class SyncManager(
                 val items = gabaritoRes.list ?: emptyList()
                 if (items.isEmpty()) break
                 allGabaritoItems.addAll(items)
-                totalExpected = maxOf(totalExpected, gabaritoRes.resultCount)
-                if (allGabaritoItems.size >= gabaritoRes.resultCount || items.size < 100) break
+                if (gabaritoRes.resultCount > 0) {
+                    totalExpected = maxOf(totalExpected, gabaritoRes.resultCount)
+                }
+                // Stop when all items are fetched according to resultCount
+                if (gabaritoRes.resultCount > 0 && allGabaritoItems.size >= gabaritoRes.resultCount) break
                 page++
             }
 
@@ -139,7 +142,7 @@ class SyncManager(
 
                 // Check if question is already saved locally
                 val existing = db.questionDao().getQuestionById(item.idQuestao)
-                if (existing == null) {
+                if (existing == null || existing.numeroAlternativaCorreta == null) {
                     // Fetch question content
                     val qDto = apiService.getQuestao(item.idQuestao)
                     val comDto = apiService.getComentario(item.idQuestao)
@@ -151,7 +154,21 @@ class SyncManager(
                         val offlineAlternativas = (qDto.alternativas ?: emptyList()).map {
                             imageStorage.processAndCacheHtmlImages(it)
                         }
-                        val offlineComentario = imageStorage.processAndCacheHtmlImages(comDto?.textoComentario ?: "")
+
+                        val rawComentario = comDto?.textoComentario
+                        val offlineComentario = if (!rawComentario.isNullOrBlank()) {
+                            imageStorage.processAndCacheHtmlImages(rawComentario)
+                        } else {
+                            "<p style=\"color: #64748B; font-style: italic;\">Esta questão ainda não possui comentário do professor cadastrado no TEC Concursos.</p>"
+                        }
+
+                        // Robust gabarito extraction from metadata and commentary
+                        val (extractedGabarito, extractedNumero) = GabaritoExtractor.extract(
+                            numeroCorretoRaw = qDto.numeroAlternativaCorreta ?: (if (item.alternativa != null && item.acertou == true) item.alternativa else null),
+                            tipoQuestao = qDto.tipoQuestao,
+                            alternativas = offlineAlternativas,
+                            comentarioHtml = rawComentario
+                        )
 
                         val questionEntity = QuestionEntity(
                             id = qDto.idQuestao,
@@ -170,7 +187,8 @@ class SyncManager(
                             desatualizada = qDto.desatualizada,
                             enunciadoHtml = offlineEnunciado,
                             alternativasJson = gson.toJson(offlineAlternativas),
-                            numeroAlternativaCorreta = qDto.numeroAlternativaCorreta,
+                            gabarito = extractedGabarito,
+                            numeroAlternativaCorreta = extractedNumero ?: qDto.numeroAlternativaCorreta,
                             comentarioHtml = offlineComentario,
                             comentarioTexto = null
                         )

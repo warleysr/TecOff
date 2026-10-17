@@ -234,7 +234,7 @@ fun CadernosScreen(
                             onClick = onNavigateToLogin,
                             colors = ButtonDefaults.buttonColors(containerColor = TecPrimary)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null)
+                            Icon(Icons.Default.Login, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Fazer Login no TEC")
                         }

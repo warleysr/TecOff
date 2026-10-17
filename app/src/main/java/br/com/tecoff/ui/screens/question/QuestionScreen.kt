@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.tecoff.ui.components.AlternativeItem
 import br.com.tecoff.ui.components.HtmlText
+import br.com.tecoff.ui.components.ImageViewerDialog
 import br.com.tecoff.ui.components.MetadataChips
 import br.com.tecoff.ui.theme.*
 
@@ -39,10 +40,19 @@ fun QuestionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
+    var activeZoomImageUrl by remember { mutableStateOf<String?>(null) }
 
     // Reset scroll when question index changes
     LaunchedEffect(uiState.currentIndex) {
         scrollState.scrollTo(0)
+    }
+
+    // Full-screen Zoomable Image Viewer Dialog
+    activeZoomImageUrl?.let { url ->
+        ImageViewerDialog(
+            imageUrl = url,
+            onDismiss = { activeZoomImageUrl = null }
+        )
     }
 
     Scaffold(
@@ -211,7 +221,7 @@ fun QuestionScreen(
                     assuntoNome = q.assuntoNome
                 )
 
-                // Enunciado (Question Statement with offline HTML images)
+                // Enunciado (Question Statement with offline HTML images and tap to zoom)
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -226,7 +236,10 @@ fun QuestionScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        HtmlText(html = q.enunciadoHtml)
+                        HtmlText(
+                            html = q.enunciadoHtml,
+                            onImageClick = { activeZoomImageUrl = it }
+                        )
                     }
                 }
 
@@ -271,7 +284,8 @@ fun QuestionScreen(
                         isAnswered = uiState.isAnswered,
                         isStrikethrough = isStrikethrough,
                         onSelect = { viewModel.selectAlternative(altIndex) },
-                        onToggleStrikethrough = { viewModel.toggleStrikethrough(altIndex) }
+                        onToggleStrikethrough = { viewModel.toggleStrikethrough(altIndex) },
+                        onImageClick = { activeZoomImageUrl = it }
                     )
                 }
 
@@ -391,7 +405,10 @@ fun QuestionScreen(
                                 } else {
                                     "<p style=\"color: #64748B; font-style: italic;\">Esta questão ainda não possui comentário do professor cadastrado no TEC Concursos.</p>"
                                 }
-                                HtmlText(html = comText)
+                                HtmlText(
+                                    html = comText,
+                                    onImageClick = { activeZoomImageUrl = it }
+                                )
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }

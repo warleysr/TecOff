@@ -1,8 +1,10 @@
 package br.com.tecoff.ui.components
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
+import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,12 +14,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 
+class ImageBridge(private val onImageClick: (String) -> Unit) {
+    @JavascriptInterface
+    fun onImageClick(url: String) {
+        Handler(Looper.getMainLooper()).post {
+            onImageClick(url)
+        }
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun HtmlText(
     html: String,
     modifier: Modifier = Modifier,
-    isDark: Boolean = isSystemInDarkTheme()
+    isDark: Boolean = isSystemInDarkTheme(),
+    onImageClick: ((String) -> Unit)? = null
 ) {
     val styledHtml = remember(html, isDark) {
         val textColor = if (isDark) "#F8FAFC" else "#0F172A"
@@ -44,7 +56,13 @@ fun HtmlText(
                     height: auto;
                     display: block;
                     margin: 8px auto;
-                    border-radius: 6px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                    transition: transform 0.15s ease-in-out;
+                }
+                img:active {
+                    transform: scale(0.98);
                 }
                 table {
                     border-collapse: collapse;
@@ -74,6 +92,19 @@ fun HtmlText(
                     color: ${if (isDark) "#94A3B8" else "#64748B"};
                 }
             </style>
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    var imgs = document.querySelectorAll("img");
+                    imgs.forEach(function(img) {
+                        img.addEventListener("click", function(e) {
+                            e.preventDefault();
+                            if (window.AndroidBridge && window.AndroidBridge.onImageClick) {
+                                window.AndroidBridge.onImageClick(this.src);
+                            }
+                        });
+                    });
+                });
+            </script>
         </head>
         <body>
             $html
@@ -95,6 +126,12 @@ fun HtmlText(
                     loadsImagesAutomatically = true
                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 }
+                addJavascriptInterface(
+                    ImageBridge { url ->
+                        onImageClick?.invoke(url)
+                    },
+                    "AndroidBridge"
+                )
             }
         },
         update = { webView ->

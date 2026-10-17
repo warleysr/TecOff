@@ -2,8 +2,8 @@ package br.com.tecoff.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.FormatStrikethrough
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,6 +35,7 @@ fun AlternativeItem(
     isStrikethrough: Boolean,
     onSelect: () -> Unit,
     onToggleStrikethrough: () -> Unit,
+    onImageClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Determine colors based on state
@@ -85,10 +87,11 @@ fun AlternativeItem(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         border = BorderStroke(if (isSelected || (isAnswered && isCorrectAlternative)) 2.dp else 1.dp, borderColor),
+        onClick = { if (!isAnswered) onSelect() },
+        enabled = !isAnswered,
         modifier = modifier
             .fillMaxWidth()
             .alpha(itemAlpha)
-            .clickable(enabled = !isAnswered) { onSelect() }
     ) {
         Row(
             modifier = Modifier
@@ -130,13 +133,30 @@ fun AlternativeItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Alternative HTML Content
+            // Alternative Content with Full-Area Clickability
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .padding(top = 2.dp)
             ) {
-                HtmlText(html = htmlContent)
+                HtmlText(
+                    html = htmlContent,
+                    onImageClick = onImageClick
+                )
+
+                // Transparent overlay on top of WebView to guarantee click interception across the entire text area
+                if (!isAnswered) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                onSelect()
+                            }
+                    )
+                }
             }
 
             // Strikethrough / Discard Button (only if not answered)

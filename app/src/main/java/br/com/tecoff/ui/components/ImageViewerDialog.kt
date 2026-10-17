@@ -29,6 +29,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import coil.size.Precision
+import coil.size.Size
 
 @Composable
 fun ImageViewerDialog(
@@ -90,6 +92,8 @@ fun ImageViewerDialog(
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(parsedModel)
+                        .size(Size.ORIGINAL)
+                        .precision(Precision.EXACT)
                         .crossfade(true)
                         .build(),
                     contentDescription = "Imagem da questão ampliada",

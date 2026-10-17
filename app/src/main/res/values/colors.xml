@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tec_primary">#0F3E6D</color>
+    <color name="tec_primary_variant">#0B2E52</color>
+    <color name="tec_secondary">#00A86B</color>
+    <color name="tec_background">#F8FAFC</color>
+    <color name="tec_surface">#FFFFFF</color>
+    <color name="tec_error">#DC2626</color>
+</resources>
